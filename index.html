@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BankPrep — Daily Target Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a; --surface: #111827; --card: #1a2235; --border: #1f2d44;
+    --gold: #f0b429; --gold-dim: #a07820; --teal: #0dd8c0; --red: #f75757;
+    --text: #e8eaf0; --muted: #6b7a99; --success: #22c55e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; max-width: 430px; margin: 0 auto;
+    overflow-x: hidden; padding-bottom: 72px;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #0d1526, #0a1020);
+    padding: 18px 20px 14px;
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .brand { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; color: var(--gold); }
+  .brand span { color: var(--text); }
+  .date-badge { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-align: right; line-height: 1.6; }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: #0d1526; border-top: 1px solid var(--border);
+    display: flex; z-index: 200;
+  }
+  .nav-tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 10px 0 8px; cursor: pointer;
+    border: none; background: none; color: var(--muted);
+    font-family: 'DM Sans', sans-serif; font-size: 10px; gap: 3px; transition: color 0.2s;
+  }
+  .nav-tab.active { color: var(--gold); }
+  .nav-icon { font-size: 20px; }
+
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* SUMMARY */
+  .summary-section { padding: 20px 20px 12px; display: flex; align-items: center; gap: 18px; }
+  .ring-wrap { position: relative; flex-shrink: 0; }
+  .ring-svg { transform: rotate(-90deg); }
+  .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring-pct { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--gold); line-height: 1; }
+  .ring-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+  .summary-stats { flex: 1; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { font-size: 12px; color: var(--muted); }
+  .stat-val { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; }
+  .gold { color: var(--gold); } .teal { color: var(--teal); } .red { color: var(--red); } .green { color: var(--success); }
+
+  /* STREAK */
+  .streak-bar { display: flex; gap: 5px; padding: 0 20px; margin-bottom: 16px; }
+  .streak-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .streak-dot {
+    width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); transition: all 0.2s;
+  }
+  .streak-dot.done { background: var(--gold); border-color: var(--gold); color: #0a0e1a; font-weight: 700; }
+  .streak-dot.today { border-color: var(--teal); color: var(--teal); }
+  .streak-lbl { font-size: 9px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* SECTION HEAD */
+  .section-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 20px 10px; }
+  .section-title { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .add-btn {
+    font-size: 11px; color: var(--teal); background: none; border: 1px solid var(--teal);
+    padding: 4px 10px; border-radius: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+  }
+  .add-btn:active { background: var(--teal); color: var(--bg); }
+
+  /* SUBJECT CARDS */
+  .subjects-list { padding: 0 20px; display: flex; flex-direction: column; gap: 10px; }
+  .subject-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 13px 14px; position: relative; overflow: hidden;
+    transition: transform 0.15s; animation: slideIn 0.3s ease both;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .subject-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .subject-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .card-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .counter-wrap {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--surface); border-radius: 20px; padding: 3px 9px; border: 1px solid var(--border);
+  }
+  .counter-btn {
+    width: 24px; height: 24px; border-radius: 50%; border: none; cursor: pointer;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    transition: transform 0.12s; font-family: 'DM Mono', monospace; line-height: 1;
+  }
+  .counter-btn.minus { background: #1f2d44; color: var(--red); }
+  .counter-btn.plus { background: #0d2218; color: var(--success); }
+  .counter-btn:active { transform: scale(0.82); }
+  .counter-val { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; min-width: 26px; text-align: center; }
+  .icon-btn {
+    width: 26px; height: 26px; border-radius: 50%; background: none; border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer; font-size: 13px; display: flex; align-items: center;
+    justify-content: center; transition: all 0.2s; flex-shrink: 0;
+  }
+  .icon-btn.edit:hover { border-color: var(--gold); color: var(--gold); }
+  .icon-btn.del:hover { border-color: var(--red); color: var(--red); background: #2a1f1f; }
+  .progress-track { height: 5px; background: var(--border); border-radius: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 10px; transition: width 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .done-badge {
+    font-size: 10px; font-family: 'DM Mono', monospace; padding: 2px 7px;
+    border-radius: 10px; font-weight: 500; margin-left: 5px;
+  }
+
+  /* NOTES */
+  .quick-log { margin: 14px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .log-head { display: flex; justify-content: space-between; align-items: center; padding: 11px 16px; background: var(--surface); cursor: pointer; user-select: none; }
+  .log-title { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .log-arrow { color: var(--muted); font-size: 12px; transition: transform 0.3s; }
+  .log-arrow.open { transform: rotate(180deg); }
+  .log-body { padding: 12px 16px; display: none; }
+  .log-body.open { display: block; }
+  .log-textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 10px 12px; resize: none; outline: none; min-height: 80px; line-height: 1.6;
+  }
+  .log-textarea:focus { border-color: var(--gold-dim); }
+
+  /* MOTIVATION */
+  .motivation {
+    margin: 4px 20px 18px; background: linear-gradient(135deg,#0d2218,#0d1a2a);
+    border: 1px solid #1a3a2a; border-radius: 12px; padding: 12px 14px;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .motivation-text { font-size: 12px; line-height: 1.5; color: var(--muted); font-style: italic; }
+  .motivation-text strong { color: var(--teal); font-style: normal; font-weight: 600; }
+
+  /* MOCK SUMMARY */
+  .mock-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px 20px 8px; }
+  .mock-stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+  .msc-label { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .msc-val { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; line-height: 1; }
+  .msc-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* TREND */
+  .trend-section { margin: 4px 20px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+  .trend-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .trend-chart { display: flex; align-items: flex-end; gap: 5px; height: 56px; }
+  .trend-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .trend-bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; }
+  .trend-lbl { font-size: 8px; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-align: center; }
+
+  /* MOCK CARDS */
+  .mock-list { padding: 0 20px; display: flex; flex-direction: column; gap: 10px; }
+  .mock-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; animation: slideIn 0.3s ease both; }
+  .mock-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .mock-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; padding-right: 8px; }
+  .mock-date { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .mock-score-badge { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; padding: 3px 11px; border-radius: 20px; flex-shrink: 0; }
+  .mock-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chip { font-family: 'DM Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+  .chip.c { color: var(--success); border-color: #1a3a24; background: #0d2218; }
+  .chip.w { color: var(--red); border-color: #3a1a1a; background: #200d0d; }
+  .chip.s { color: var(--gold); border-color: #3a2a0d; background: #1a1500; }
+  .mock-bar { height: 4px; background: var(--border); border-radius: 10px; overflow: hidden; }
+  .mock-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+  .mock-remarks { font-size: 11px; color: var(--muted); margin-bottom: 8px; font-style: italic; }
+  .mock-card-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; }
+
+  /* MODALS */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.78); backdrop-filter: blur(4px); z-index: 300; display: none; align-items: flex-end; }
+  .modal-overlay.open { display: flex; }
+  .modal-sheet {
+    width: 100%; max-width: 430px; margin: 0 auto;
+    background: var(--surface); border-radius: 20px 20px 0 0; padding: 20px;
+    animation: sheetUp 0.32s cubic-bezier(0.34,1.4,0.64,1); max-height: 92vh; overflow-y: auto;
+  }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 18px; }
+  .modal-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; color: var(--gold); margin-bottom: 16px; }
+  .field-label { font-size: 11px; font-family: 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: block; }
+  .field-input, .field-select {
+    width: 100%; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 14px; padding: 10px 14px; outline: none; margin-bottom: 13px; -webkit-appearance: none;
+  }
+  .field-input:focus, .field-select:focus { border-color: var(--gold-dim); }
+  .field-row { display: flex; gap: 10px; }
+  .field-row > div { flex: 1; }
+  .color-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .color-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s; }
+  .color-dot.selected { border-color: white; transform: scale(1.2); }
+  .modal-actions { display: flex; gap: 10px; }
+  .btn-cancel { flex: 1; padding: 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--border); color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; }
+  .btn-save { flex: 2; padding: 12px; border-radius: 12px; background: var(--gold); border: none; color: #0a0e1a; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+  .btn-save:active { opacity: 0.85; }
+
+  .empty-msg { text-align: center; padding: 30px 0; color: var(--muted); font-size: 13px; }
+  .empty-msg strong { color: var(--teal); }
+  .bottom-space { height: 16px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">Bank<span>Prep</span></div>
+  <div class="date-badge" id="dateDisplay"></div>
+</div>
+
+<!-- PAGE: DAILY TARGETS -->
+<div class="page active" id="page-targets">
+  <div class="summary-section">
+    <div class="ring-wrap">
+      <svg class="ring-svg" width="88" height="88" viewBox="0 0 88 88">
+        <circle cx="44" cy="44" r="37" fill="none" stroke="#1f2d44" stroke-width="7"/>
+        <circle id="ringProgress" cx="44" cy="44" r="37" fill="none" stroke="#f0b429"
+          stroke-width="7" stroke-linecap="round"
+          stroke-dasharray="232.5" stroke-dashoffset="232.5"
+          style="transition:stroke-dashoffset 0.8s cubic-bezier(0.34,1.1,0.64,1)"/>
+      </svg>
+      <div class="ring-center">
+        <div class="ring-pct" id="ringPct">0%</div>
+        <div class="ring-label">done</div>
+      </div>
+    </div>
+    <div class="summary-stats">
+      <div class="stat-row"><span class="stat-label">Subjects</span><span class="stat-val" id="totalSubjects">0</span></div>
+      <div class="stat-row"><span class="stat-label">Completed</span><span class="stat-val teal" id="completedCount">0</span></div>
+      <div class="stat-row"><span class="stat-label">Remaining</span><span class="stat-val red" id="remainingCount">0</span></div>
+      <div class="stat-row"><span class="stat-label">Qs Done</span><span class="stat-val gold" id="totalQs">0</span></div>
+    </div>
+  </div>
+
+  <div class="section-head" style="padding-bottom:6px;"><span class="section-title">🔥 Weekly Streak</span></div>
+  <div class="streak-bar" id="streakBar"></div>
+
+  <div class="section-head">
+    <span class="section-title">Today's Targets</span>
+    <button class="add-btn" onclick="openSubjectModal()">+ Add</button>
+  </div>
+  <div class="subjects-list" id="subjectsList"></div>
+
+  <div class="quick-log">
+    <div class="log-head" onclick="toggleLog()">
+      <span class="log-title">📝 Today's Notes</span>
+      <span class="log-arrow" id="logArrow">▼</span>
+    </div>
+    <div class="log-body" id="logBody">
+      <textarea class="log-textarea" id="notesArea" placeholder="Notes, doubts, reflections…" rows="4"></textarea>
+    </div>
+  </div>
+
+  <div class="motivation">
+    <span style="font-size:20px">💡</span>
+    <div class="motivation-text" id="motivationText"></div>
+  </div>
+  <div class="bottom-space"></div>
+</div>
+
+<!-- PAGE: MOCK TESTS -->
+<div class="page" id="page-mock">
+  <div class="mock-summary">
+    <div class="mock-stat-card"><div class="msc-label">Tests Taken</div><div class="msc-val gold" id="mTaken">0</div><div class="msc-sub">total attempts</div></div>
+    <div class="mock-stat-card"><div class="msc-label">Best Score</div><div class="msc-val teal" id="mBest">—</div><div class="msc-sub">highest %</div></div>
+    <div class="mock-stat-card"><div class="msc-label">Avg Score</div><div class="msc-val" id="mAvg">—</div><div class="msc-sub">per test</div></div>
+    <div class="mock-stat-card"><div class="msc-label">Avg Accuracy</div><div class="msc-val green" id="mAcc">—</div><div class="msc-sub">correct rate</div></div>
+  </div>
+
+  <div class="trend-section" id="trendSection" style="display:none">
+    <div class="trend-title">📈 Score Trend</div>
+    <div class="trend-chart" id="trendChart"></div>
+  </div>
+
+  <div class="section-head">
+    <span class="section-title">Mock Test Log</span>
+    <button class="add-btn" onclick="openMockModal()">+ Add</button>
+  </div>
+  <div class="mock-list" id="mockList"></div>
+  <div class="bottom-space"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-tab active" id="tab-targets" onclick="switchTab('targets')">
+    <span class="nav-icon">🎯</span>Daily Targets
+  </button>
+  <button class="nav-tab" id="tab-mock" onclick="switchTab('mock')">
+    <span class="nav-icon">📝</span>Mock Tests
+  </button>
+</div>
+
+<!-- SUBJECT MODAL -->
+<div class="modal-overlay" id="subjectModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="subjectModalTitle">Add Subject</div>
+    <label class="field-label">Subject Name</label>
+    <input class="field-input" id="sName" placeholder="e.g. Quantitative Aptitude" />
+    <label class="field-label">Daily Target (questions / topics)</label>
+    <input class="field-input" id="sTarget" type="number" min="1" placeholder="e.g. 50" />
+    <label class="field-label">Category</label>
+    <select class="field-select" id="sCategory">
+      <option value="Quant">Quantitative Aptitude</option>
+      <option value="Reasoning">Logical Reasoning</option>
+      <option value="English">English Language</option>
+      <option value="GK">General Awareness / GK</option>
+      <option value="Computer">Computer Aptitude</option>
+      <option value="Banking">Banking Awareness</option>
+      <option value="Custom">Custom</option>
+    </select>
+    <label class="field-label">Color Tag</label>
+    <div class="color-row" id="colorRow"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSubjectModal()">Cancel</button>
+      <button class="btn-save" onclick="saveSubject()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOCK MODAL -->
+<div class="modal-overlay" id="mockModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="mockModalTitle">Log Mock Test</div>
+    <label class="field-label">Test Name / Series</label>
+    <input class="field-input" id="mName" placeholder="e.g. SBI PO Full Mock #5" />
+    <div class="field-row">
+      <div><label class="field-label">Score</label><input class="field-input" id="mScore" type="number" min="0" placeholder="e.g. 78" /></div>
+      <div><label class="field-label">Total Marks</label><input class="field-input" id="mTotalM" type="number" min="1" placeholder="e.g. 100" /></div>
+    </div>
+    <div class="field-row">
+      <div><label class="field-label">Correct</label><input class="field-input" id="mCorrect" type="number" min="0" placeholder="65" /></div>
+      <div><label class="field-label">Wrong</label><input class="field-input" id="mWrong" type="number" min="0" placeholder="10" /></div>
+    </div>
+    <div class="field-row">
+      <div><label class="field-label">Skipped</label><input class="field-input" id="mSkip" type="number" min="0" placeholder="25" /></div>
+      <div><label class="field-label">Time (min)</label><input class="field-input" id="mTime" type="number" min="0" placeholder="60" /></div>
+    </div>
+    <label class="field-label">Date</label>
+    <input class="field-input" id="mDate" type="date" />
+    <label class="field-label">Remarks</label>
+    <input class="field-input" id="mRemarks" placeholder="e.g. Need to improve DI" />
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeMockModal()">Cancel</button>
+      <button class="btn-save" onclick="saveMockTest()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#f0b429','#0dd8c0','#f75757','#818cf8','#fb923c','#34d399','#e879f9','#38bdf8'];
+const DAYS = ['S','M','T','W','T','F','S'];
+const QUOTES = [
+  'Every question solved today is a step closer to your <strong>dream bank job</strong>.',
+  'Consistency beats intensity. Show up <strong>every single day</strong>.',
+  'The exam only tests one thing: <strong>how well you prepared</strong>.',
+  'Your future self is watching. Make them <strong>proud today</strong>.',
+  'Small daily targets compound into <strong>extraordinary results</strong>.',
+  'Discipline is choosing the exam over everything else — <strong>for now</strong>.',
+];
+
+let state = JSON.parse(localStorage.getItem('bankprepState2') || 'null') || {
+  subjects: [], notes: '', streak: [false,false,false,false,false,false,false], mockTests: []
+};
+if (!state.mockTests) state.mockTests = [];
+
+let selectedColor = COLORS[0];
+let editingSubjectIdx = null;
+let editingMockId = null;
+
+function save() { localStorage.setItem('bankprepState2', JSON.stringify(state)); }
+
+/* ---- TAB ---- */
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'mock') { renderMockTests(); updateMockSummary(); }
+}
+
+/* ---- INIT ---- */
+function init() {
+  const now = new Date();
+  document.getElementById('dateDisplay').innerHTML =
+    now.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short',year:'numeric'}).replace(',',' <br>');
+  document.getElementById('motivationText').innerHTML = QUOTES[Math.floor(Math.random()*QUOTES.length)];
+  buildColorPicker('colorRow');
+  document.getElementById('notesArea').value = state.notes || '';
+  document.getElementById('notesArea').addEventListener('input', e => { state.notes = e.target.value; save(); });
+  document.getElementById('mDate').value = now.toISOString().split('T')[0];
+  renderStreak(); renderSubjects(); updateSummary();
+}
+
+function buildColorPicker(id) {
+  document.getElementById(id).innerHTML = COLORS.map((c,i) =>
+    `<div class="color-dot${i===0?' selected':''}" style="background:${c}" onclick="pickColor('${c}',this,'${id}')"></div>`
+  ).join('');
+}
+
+function pickColor(c, el, containerId) {
+  selectedColor = c;
+  document.querySelectorAll(`#${containerId} .color-dot`).forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+/* ---- STREAK ---- */
+function renderStreak() {
+  const todayIdx = new Date().getDay();
+  document.getElementById('streakBar').innerHTML = DAYS.map((d,i) => {
+    const done = state.streak[i], today = (i === todayIdx);
+    return `<div class="streak-day">
+      <div class="streak-dot${done?' done':''}${today&&!done?' today':''}">${done?'✓':d}</div>
+      <div class="streak-lbl">${d}</div>
+    </div>`;
+  }).join('');
+  if (calcPct() >= 50) { state.streak[todayIdx] = true; save(); }
+}
+
+function calcPct() {
+  if (!state.subjects.length) return 0;
+  return Math.round(state.subjects.filter(s=>s.done>=s.target).length / state.subjects.length * 100);
+}
+
+/* ---- SUMMARY ---- */
+function updateSummary() {
+  const total = state.subjects.length;
+  const completed = state.subjects.filter(s=>s.done>=s.target).length;
+  document.getElementById('totalSubjects').textContent = total;
+  document.getElementById('completedCount').textContent = completed;
+  document.getElementById('remainingCount').textContent = total - completed;
+  document.getElementById('totalQs').textContent = state.subjects.reduce((a,s)=>a+(s.done||0),0);
+  const pct = calcPct();
+  document.getElementById('ringPct').textContent = pct + '%';
+  const circ = 232.5;
+  document.getElementById('ringProgress').style.strokeDashoffset = circ - circ * pct / 100;
+  renderStreak();
+}
+
+/* ---- SUBJECTS ---- */
+function renderSubjects() {
+  const list = document.getElementById('subjectsList');
+  if (!state.subjects.length) {
+    list.innerHTML = `<div class="empty-msg">No subjects yet.<br>Tap <strong>+ Add</strong> to start tracking.</div>`;
+    return;
+  }
+  list.innerHTML = state.subjects.map((s,i) => {
+    const pct = Math.min(100, Math.round(s.done/s.target*100));
+    const done = s.done >= s.target;
+    return `<div class="subject-card">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${s.color};border-radius:3px 0 0 3px;"></div>
+      <div class="card-top">
+        <div class="subject-info" style="padding-left:6px">
+          <div class="subject-name" style="color:${done?s.color:'var(--text)'}">
+            ${s.name}${done?`<span class="done-badge" style="background:${s.color}22;color:${s.color}">✓</span>`:''}
+          </div>
+          <div class="subject-meta">${s.category} · Target: ${s.target} · Done: ${s.done} · ${pct}%</div>
+        </div>
+        <div class="card-actions">
+          <div class="counter-wrap">
+            <button class="counter-btn minus" onclick="adjust(${i},-1)">−</button>
+            <span class="counter-val">${s.done}</span>
+            <button class="counter-btn plus" onclick="adjust(${i},1)">+</button>
+          </div>
+          <button class="icon-btn edit" onclick="editSubject(${i})" title="Edit">✏️</button>
+          <button class="icon-btn del" onclick="deleteSubject(${i})" title="Delete">×</button>
+        </div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${s.color}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function adjust(i, delta) {
+  state.subjects[i].done = Math.max(0, (state.subjects[i].done||0) + delta);
+  save(); renderSubjects(); updateSummary();
+}
+
+function deleteSubject(i) {
+  if (confirm(`Remove "${state.subjects[i].name}"?`)) {
+    state.subjects.splice(i,1); save(); renderSubjects(); updateSummary();
+  }
+}
+
+/* ---- SUBJECT MODAL ---- */
+function openSubjectModal(idx = null) {
+  editingSubjectIdx = idx;
+  const editing = idx !== null;
+  document.getElementById('subjectModalTitle').textContent = editing ? 'Edit Subject' : 'Add Subject';
+  buildColorPicker('colorRow');
+  if (editing) {
+    const s = state.subjects[idx];
+    document.getElementById('sName').value = s.name;
+    document.getElementById('sTarget').value = s.target;
+    document.getElementById('sCategory').value = s.category;
+    selectedColor = s.color;
+    setTimeout(() => {
+      const dots = document.querySelectorAll('#colorRow .color-dot');
+      dots.forEach(d => { if (d.style.background === s.color) d.classList.add('selected'); });
+    }, 10);
+  } else {
+    document.getElementById('sName').value = '';
+    document.getElementById('sTarget').value = '';
+    selectedColor = COLORS[0];
+  }
+  document.getElementById('subjectModal').classList.add('open');
+  setTimeout(() => document.getElementById('sName').focus(), 200);
+}
+
+function closeSubjectModal() {
+  document.getElementById('subjectModal').classList.remove('open');
+  editingSubjectIdx = null;
+}
+
+function editSubject(i) { openSubjectModal(i); }
+
+function saveSubject() {
+  const name = document.getElementById('sName').value.trim();
+  const target = parseInt(document.getElementById('sTarget').value);
+  const category = document.getElementById('sCategory').value;
+  if (!name) { alert('Please enter a subject name.'); return; }
+  if (!target || target < 1) { alert('Please enter a valid target.'); return; }
+  if (editingSubjectIdx !== null) {
+    const old = state.subjects[editingSubjectIdx];
+    state.subjects[editingSubjectIdx] = { ...old, name, target, category, color: selectedColor };
+  } else {
+    state.subjects.push({ name, target, done: 0, category, color: selectedColor });
+  }
+  save(); closeSubjectModal(); renderSubjects(); updateSummary();
+}
+
+/* ---- LOG ---- */
+function toggleLog() {
+  document.getElementById('logBody').classList.toggle('open');
+  document.getElementById('logArrow').classList.toggle('open');
+}
+
+/* ---- MOCK TESTS ---- */
+function scoreColor(pct) {
+  if (pct >= 80) return 'var(--success)';
+  if (pct >= 60) return 'var(--gold)';
+  if (pct >= 40) return 'var(--teal)';
+  return 'var(--red)';
+}
+
+function updateMockSummary() {
+  const tests = state.mockTests;
+  document.getElementById('mTaken').textContent = tests.length;
+  if (!tests.length) {
+    document.getElementById('mBest').textContent = '—';
+    document.getElementById('mAvg').textContent = '—';
+    document.getElementById('mAcc').textContent = '—';
+    document.getElementById('trendSection').style.display = 'none';
+    return;
+  }
+  const pcts = tests.map(t => t.score/t.total*100);
+  const best = Math.max(...pcts);
+  const avg = pcts.reduce((a,b)=>a+b,0)/pcts.length;
+  const totC = tests.reduce((a,t)=>a+(t.correct||0),0);
+  const totA = tests.reduce((a,t)=>a+(t.correct||0)+(t.wrong||0),0);
+  const acc = totA ? Math.round(totC/totA*100) : 0;
+  document.getElementById('mBest').textContent = Math.round(best) + '%';
+  document.getElementById('mAvg').textContent = Math.round(avg) + '%';
+  document.getElementById('mAcc').textContent = acc + '%';
+  if (tests.length > 1) {
+    document.getElementById('trendSection').style.display = 'block';
+    const recent = [...tests].reverse().slice(-8);
+    document.getElementById('trendChart').innerHTML = recent.map(t => {
+      const p = t.score/t.total*100;
+      const h = Math.max(6, Math.round(p/100*50));
+      const lbl = t.name.length > 7 ? t.name.slice(0,7)+'…' : t.name;
+      return `<div class="trend-bar-wrap">
+        <div class="trend-bar" style="height:${h}px;background:${scoreColor(p)};opacity:0.85"></div>
+        <div class="trend-lbl">${lbl}</div>
+      </div>`;
+    }).join('');
+  } else {
+    document.getElementById('trendSection').style.display = 'none';
+  }
+}
+
+function renderMockTests() {
+  const list = document.getElementById('mockList');
+  if (!state.mockTests.length) {
+    list.innerHTML = `<div class="empty-msg">No mock tests yet.<br>Tap <strong>+ Add</strong> to log your first test.</div>`;
+    return;
+  }
+  list.innerHTML = state.mockTests.map(t => {
+    const pct = Math.round(t.score/t.total*100);
+    const c = scoreColor(pct);
+    const attempted = (t.correct||0)+(t.wrong||0);
+    const acc = attempted ? Math.round((t.correct||0)/attempted*100) : 0;
+    const dateStr = t.date ? new Date(t.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'}) : '';
+    return `<div class="mock-card">
+      <div class="mock-card-top">
+        <div style="flex:1">
+          <div class="mock-name">${t.name}</div>
+          <div class="mock-date">${dateStr}${t.time?' · ⏱ '+t.time+' min':''}</div>
+        </div>
+        <div class="mock-score-badge" style="background:${c}22;color:${c}">${pct}%</div>
+      </div>
+      <div class="mock-chips">
+        <span class="chip">📊 ${t.score}/${t.total}</span>
+        ${t.correct?`<span class="chip c">✓ ${t.correct}</span>`:''}
+        ${t.wrong?`<span class="chip w">✗ ${t.wrong}</span>`:''}
+        ${t.skip?`<span class="chip s">— ${t.skip}</span>`:''}
+        ${attempted?`<span class="chip">Accuracy: ${acc}%</span>`:''}
+      </div>
+      ${t.remarks?`<div class="mock-remarks">💬 ${t.remarks}</div>`:''}
+      <div class="mock-bar"><div class="mock-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+      <div class="mock-card-actions">
+        <button class="icon-btn edit" onclick="editMockTest(${t.id})" style="width:auto;padding:0 10px;border-radius:8px;font-size:11px;gap:4px">✏️ Edit</button>
+        <button class="icon-btn del" onclick="deleteMockTest(${t.id})" style="width:auto;padding:0 10px;border-radius:8px;font-size:11px;gap:4px">× Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---- MOCK MODAL ---- */
+function openMockModal(id = null) {
+  editingMockId = id;
+  document.getElementById('mockModalTitle').textContent = id !== null ? 'Edit Mock Test' : 'Log Mock Test';
+  if (id !== null) {
+    const t = state.mockTests.find(x=>x.id===id);
+    document.getElementById('mName').value = t.name;
+    document.getElementById('mScore').value = t.score;
+    document.getElementById('mTotalM').value = t.total;
+    document.getElementById('mCorrect').value = t.correct || '';
+    document.getElementById('mWrong').value = t.wrong || '';
+    document.getElementById('mSkip').value = t.skip || '';
+    document.getElementById('mTime').value = t.time || '';
+    document.getElementById('mDate').value = t.date || '';
+    document.getElementById('mRemarks').value = t.remarks || '';
+  } else {
+    ['mName','mScore','mTotalM','mCorrect','mWrong','mSkip','mTime','mRemarks'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('mDate').value = new Date().toISOString().split('T')[0];
+  }
+  document.getElementById('mockModal').classList.add('open');
+  setTimeout(() => document.getElementById('mName').focus(), 200);
+}
+
+function closeMockModal() {
+  document.getElementById('mockModal').classList.remove('open');
+  editingMockId = null;
+}
+
+function editMockTest(id) { openMockModal(id); }
+
+function deleteMockTest(id) {
+  if (confirm('Remove this mock test record?')) {
+    state.mockTests = state.mockTests.filter(t=>t.id!==id);
+    save(); renderMockTests(); updateMockSummary();
+  }
+}
+
+function saveMockTest() {
+  const name = document.getElementById('mName').value.trim();
+  const score = parseFloat(document.getElementById('mScore').value);
+  const total = parseFloat(document.getElementById('mTotalM').value);
+  if (!name) { alert('Please enter a test name.'); return; }
+  if (isNaN(score) || isNaN(total) || total < 1) { alert('Please enter valid score and total marks.'); return; }
+  const data = {
+    name, score, total,
+    correct: parseInt(document.getElementById('mCorrect').value) || 0,
+    wrong: parseInt(document.getElementById('mWrong').value) || 0,
+    skip: parseInt(document.getElementById('mSkip').value) || 0,
+    time: parseInt(document.getElementById('mTime').value) || 0,
+    date: document.getElementById('mDate').value,
+    remarks: document.getElementById('mRemarks').value.trim(),
+  };
+  if (editingMockId !== null) {
+    const idx = state.mockTests.findIndex(t=>t.id===editingMockId);
+    state.mockTests[idx] = { ...state.mockTests[idx], ...data };
+  } else {
+    state.mockTests.unshift({ ...data, id: Date.now() });
+  }
+  save(); closeMockModal(); renderMockTests(); updateMockSummary();
+}
+
+/* ---- CLOSE MODALS ON OVERLAY CLICK ---- */
+document.getElementById('subjectModal').addEventListener('click', function(e){ if(e.target===this) closeSubjectModal(); });
+document.getElementById('mockModal').addEventListener('click', function(e){ if(e.target===this) closeMockModal(); });
+
+init();
+</script>
+</body>
+</html>
